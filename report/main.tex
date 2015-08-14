@@ -1,0 +1,204 @@
+% PRL look and style (easy on the eyes)
+%\documentclass[aps,pre,twocolumn,nofootinbib,superscriptaddress,linenumbers,11point]{revtex4-1}
+% Two-column style (for submission/review/editing)
+\documentclass[aps,prl,preprint,nofootinbib,superscriptaddress,linenumbers]{revtex4-1}
+
+%\usepackage{palatino}
+
+% Change to a sans serif font.
+\usepackage{sourcesanspro}
+\renewcommand*\familydefault{\sfdefault} %% Only if the base font of the document is to be sans serif
+\usepackage[T1]{fontenc}
+%\usepackage[font=sf,justification=justified]{caption}
+\usepackage[font=sf]{floatrow}
+
+% Rework captions to use sans serif font.
+\makeatletter
+\renewcommand\@make@capt@title[2]{%
+ \@ifx@empty\float@link{\@firstofone}{\expandafter\href\expandafter{\float@link}}%
+  {\textbf{#1}}\sf\@caption@fignum@sep#2\quad
+}%
+\makeatother
+
+\usepackage[usenames,dvipsnames,svgnames,table]{xcolor}
+
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{graphicx}
+\usepackage{dcolumn}
+\usepackage{boxedminipage}
+\usepackage{verbatim}
+\usepackage[colorlinks=true,citecolor=blue,linkcolor=blue]{hyperref}
+
+
+% The figures are in a figures/ subdirectory.
+\graphicspath{{figures/}}
+
+% italicized boldface for math (e.g. vectors)
+\newcommand{\bfv}[1]{{\mbox{\boldmath{$#1$}}}}
+% non-italicized boldface for math (e.g. matrices)
+\newcommand{\bfm}[1]{{\bf #1}}  
+
+% vectors x and y
+\newcommand{\x}{\bfv{x}}
+\newcommand{\y}{\bfv{y}}
+
+% model parameters theta
+\newcommand{\params}{\bfv{\theta}}
+
+% data
+\newcommand{\data}{\mathcal{D}}
+
+% Gaussian Process symbol
+\newcommand{\GP}{\mathcal{GP}}
+
+% color-coded comments
+\newcommand{\jdccomment}[1]{\textcolor{red}{[JDC: #1]}} 	% John D. Chodera
+\newcommand{\pbgcomment}[1]{\textcolor{green}{[PBG: #1]}} 	% Patrick B. Grinaway 
+\newcommand{\tkcomment}[1]{\textcolor{blue}{[TK: #1]}} 		% Theofanis Karaletsos
+\newcommand{\jhfcomment}[1]{\textcolor{purple}{[JHF: #1]}} 	% Josh H. Fass
+
+\DeclareMathOperator*{\argmin}{argmin}
+\DeclareMathOperator*{\argmax}{argmax}
+
+
+\newcommand{\bemph}[1]{\textbf{#1}}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% DOCUMENT
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\begin{document}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% TITLE
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\title{Dimensionality reduction for MSM construction}
+\date{\today}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% ABSTRACT
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%\begin{abstract}
+%\end{abstract}
+
+%\maketitle
+
+\begin{center}
+\textbf{Dimensionality reduction for MSM construction}
+\end{center}
+
+\section{Background}
+We would like to model the long-timescale kinetics of biomacromolecules, since processes like ligand-binding and protein-folding occur on timescales much larger than the simulation timesteps.
+This kinetic behavior is typically dominated by ``rare events.''
+A successful modeling approach that exploits this structure is the construction of Markov State Models (MSMs) from atomistic simulations.
+Essentially, this involves decomposing the state space of the molecule into a discrete set of long-lived (metastable) states, and estimating the transition rates between these states.
+Estimating the transition rates basically reduces to counting (with some complications, as well as sophisticated Bayesian estimation methods).
+The main challenge is identifying a meaningful decomposition of the state space.
+
+Decomposing a macromolecule's state space is a problem of metric learning and clustering. We want a distance function that accepts two protein conformations, and will produce a large distance if they are ``kinetically distant'' and a small number if they are ``kinetically close''-- i.e. if they can interconvert quickly. A naive distance metric (e.g. Euclidean distance between raw position vectors) may not be sensitive to long-timescale behavior, and may not be invariant to things like rotation and translation. Metrics like RMSD are conveniently invariant to rotation and translation, but may be sensitive to high-speed fluctuations.
+
+\subsection{Design considerations}
+\begin{itemize}
+	\item (+) \bemph{Bayesian} -- To play well with other parts of the MSM pipeline, we would like to be able to perform model selection in a Bayesian framework, as well as to marginalize over nuisance parameters and propagate uncertainty to future steps.
+    \item (+) \bemph{Computationally efficient} -- We would like to be able to apply any proposed method to long trajectories with up to millions of simulation frames. The computational cost of a method should not grow much faster than $O(Nd^2)$ with $N$ the number of frames and $d$ the number of atoms.
+    \item (+) \bemph{Nonlinear} -- Effectively describing slow molecular motion using a small number of collective variables may be impossible if these variables are constrained to be linear functions of the input coordinates.
+    \item (+) \bemph{Rotation-invariant} -- The distance between two protein conformations should be invariant to rigid-body rotations and translations.
+    \item (-) \bemph{Require manual feature engineering} -- We would like a method to require minimal imposition of 
+\end{itemize}
+
+\section{Research plan}
+We would like to evaluate a set of metric learning approaches for the purpose of building Markov State Models of biomolecular kinetics.
+
+\subsection{Measuring performance}
+We can measure performance of an MSM by examining the convergence of the implied timescales and by the Generalized Matrix Rayleigh Quotient (GMRQ). These measure the ability of an MSM to accurately model the long-timescale behavior of the protein
+
+\jhfcomment{Include a figure}
+
+
+\subsubsection{Generalized Matrix Rayleigh Quotient (GMRQ)}
+
+
+\subsection{Input coordinates}
+\begin{itemize}
+	\item Raw Cartesian coordinates
+	\item Cartestian coordinates after alignment onto a fixed reference structure
+	\item Pairwise interatomic distances -- Often restricted to a subset of the atoms in the molecule, esp. the heavy atoms.
+	\item 
+\end{itemize}
+
+
+\subsection{Mahalanobis distances}
+In some sense the simplest distance functions we can consider are \bemph{Mahalanobis distances} $$d_X(a,b) \equiv (a-b)^T X (a-b) $$ where $X$ is a symmetric p.s.d. matrix.
+
+A subset of these are \bemph{squared weighted Euclidean} distances, where $X$ is diagonal.
+
+\subsubsection{Principal Component Analysis (PCA)}
+Find a matrix $M$ with orthonormal columns (defining a projection function $f:X\mapsto M^T X$) that minimizes squared reconstruction error ($M = \argmin_{M \in \mathcal{O}^{d \times r}} \|X-MM^TX\|^2_F$).
+
+This can be solved in closed form by solving an eigenvalue problem: columns of $M$ are the leading eigenvectors of the data covariance matrix.
+
+\subsubsection{Time-structured Independent Component Analysis (tICA)}
+tICA is a method for finding low-dimensional linear projections that best capture the slow processes at a given lag-time $\tau$.
+
+Given a mean-free time-series $\bfv{y}(t)$, find a matrix $\bfm{M}$ that solves the following generalized eigenvalue problem involving the data covariance matrix $\bfm{C}(0)$ and the time-lagged covariance matrix $\bfm{C}(\tau)$:
+\footnote{$c_{ij}(\tau) = \langle y_i(t) y_j(t+\tau)\rangle_t$}
+
+$$\bfm{C}(\tau) \bfm{M} = \bfm{C}(0) \bfm{M} \bfm{\Lambda}$$
+
+We can interpret $\bfm{M}$ as containing linear approximations to the eigenfunctions of the full MD propagator, motivating its use in constructing MSMs, and we can interpret the associated eigenfunctions as indicators of the relaxation timescales in those directions.
+
+We can also interpret tICA as solving an optimization problem over matrices. Note that the columns of $\bfm{M}$ are not necessarily orthogonal.
+
+% Kinetic maps paper: 
+
+\jhfcomment{Problems: when the lag-time $\tau$ is longer than the slowest relaxation time in the system, the some of the eigenvalues may be negative, corresponding to ``flipping'' processes.}
+
+\subsection{Weighted RMSD / RMSD-similars}
+Given two sets of zero-centered 3D coordinates, we can find the optimal rigid-body rotation to align the two\footnote{using the Kabsch algorithm}, then sum up the squared distance between every corresponding pair of atoms, i.e.
+$$ \text{RMSD}(X,Y) = \min_R \sum_i \| X_i R - Y_i \|^2 $$
+for rotation matrices $R$.
+
+We can also weight the individual atoms to yield ``weighted RMSD'':
+$$ \text{wRMSD}(X,Y,w) = \min_R \sum_i w_i \| X_i R - Y_i \|^2 $$
+
+
+A function that computes something similar to RMSD is the so-called ``Binet-Cauchy kernel:''
+$$ \text{BC}(X,Y) = \frac{\text{det}(X^T Y)}{\sqrt{\text{det}(X^T X) \text{det}(Y^T Y)}} $$.
+
+Interpretation: this kernel is computing the cosine of the grassmann vectors of X and Y.
+
+We can then parametrize these distances by multiplying in a weight matrix:
+$$ \text{wBC}(X,Y; W) = \frac{\text{det}(X^T W Y)}{\sqrt{\text{det}(X^T W X) \text{det}(Y^T W Y)}} $$.
+where $W$ is symmetric, p.s.d.?
+% This should preserve the p.s.d.-ness of the kernel? Haven't checked explicitly yet, but for some numerical examples it produces p.s.d. Gram matrices, so that's nice...
+
+\subsection{Large-margin kinetic metric learning}
+Assume we have a family of distance functions $d_w(\cdot, \cdot)$ parametrized by a weight vector $w$. We want to find the weight vector that maximizes the distance between kinetically distant points and minimizes the distance between kinetically close points.
+
+Given an observed sequence of points $\{x_t\}$ and two lag-times $\tau_1$ and $\tau_2$ ($\tau_2 \gg \tau_1$), we can phrase this as an optimization problem in terms of a triplet loss function:
+$$w^* = \text{argmin}_w \sum_{t} \ell(w | (x_t,x_{t+\tau_1},x_{t+\tau_2}))$$
+
+where, for example, we might take the loss function to be: $$ \ell(w | (x_t,x_{t+\tau_1},x_{t+\tau_2})) \equiv d_w(x_t,x_{t+\tau_1})-d_w(x_t,x_{t+\tau_2}) $$
+
+\subsection{Triplet network}
+We can train a deep feed-forward neural network to embed input vectors into a low-dimensional space that minimizes some loss function over triplets of time-lagged observations.
+
+\subsection{Generative embeddings?}
+We expect that the sequence of observed high-dimensional snapshots are projections of a Markov process evolving in a hidden (and potentially lower-dimensional) latent space.
+
+A natural modeling approach is then to marginalize over the hidden coordinates to estimate the latent-to-observed projection function. If the projection function is invertible, then this now lets us 
+
+\section{Dynamics models}
+\subsection{Markov State Models (MSMs)}
+We assume the data sequence is generated by 
+
+\subsection{Projected and Hidden Markov Models (PMMs and HMMs)}
+
+
+
+\subsection{Reduced-Rank Hidden Markov Models (RR-HMMs)}
+
+\end{document}
