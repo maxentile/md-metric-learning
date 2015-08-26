@@ -15,9 +15,11 @@ There are two main ways we can represent a metric over configurations: (1) we ca
 - Principal Component Analysis (PCA)
  - Project onto eigenvectors of covariance matrix
 - Time-structured independent component analysis (tICA)
- - Solution to generalized eigenvalue problem with a covariance matrix and a symmetrized time-lagged covariance matrix
+ - Solution to generalized eigenvalue problem involving the covariance matrix and a (symmetrized) time-lagged covariance matrix-- finds independent linear projections that decorrelate slowly
 - Nonequilibrium-tICA
- - tICA, but with un-symmetrized time-lagged covariance matrices, possibly at more than one lag-time
+ - tICA, but with un-symmetrized time-lagged covariance matrices, possibly at more than one lag-time.
+- Maximum autocorrelation factors (MAF)
+ - Finds an orthogonal projection of the data that decorrelates slowly-- does not correspond to an eigenvalue problem.
 - Slow Feature Analysis (SFA)
  - Equivalent to tICA with lag-time 1
 - Nonlinear SFA (xSFA)

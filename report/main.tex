@@ -94,25 +94,19 @@
 \end{center}
 
 \section{Background}
-We would like to model the long-timescale kinetics of biomacromolecules, since processes like ligand-binding and protein-folding occur on timescales much larger than the simulation timesteps.
-This kinetic behavior is typically dominated by ``rare events.''
+We would like to construct simple models of the long-timescale kinetics of biomacromolecules, since processes like ligand-binding and protein-folding occur on timescales much larger than those accessible by brute-force molecular dynamics.
+This kinetic behavior is typically dominated by ``rare events,'' in which the system spends most of its time in a free energy well and rarely transitions into another free energy well.
 A successful modeling approach that exploits this structure is the construction of Markov State Models (MSMs) from atomistic simulations.
-Essentially, this involves decomposing the state space of the molecule into a discrete set of long-lived (metastable) states, and estimating the transition rates between these states.
+Essentially, this involves performing a series of long simulations with diverse initial conditions, then decomposing the state space of the molecule into a discrete set of long-lived (metastable) states, then estimating the transition rates between these states.
 Estimating the transition rates basically reduces to counting (with some complications, as well as sophisticated Bayesian estimation methods).
 The main challenge is identifying a kinetically meaningful decomposition of the state space.
 
 Decomposing a macromolecule's state space is a problem of metric learning and clustering. We want a distance function that accepts two protein conformations, and will produce a large distance if they are ``kinetically distant'' and a small number if they are ``kinetically close''-- i.e. if they can interconvert quickly. Naive geometric distance metrics (e.g. Euclidean distance between raw position vectors) may not be sensitive to degrees of freedom that decorrelate on long timescales, and may not be invariant to things like rotation and translation. Metrics like RMSD are conveniently invariant to rotation and translation, but may be sensitive to high-speed fluctuations.
 
-Thus, we would like to learn an appropriate distance metric.
+%Thus, we would like to be able to learn an appropriate distance metric.
 
-\subsection{Design considerations}
-\begin{itemize}
-	\item (+) \bemph{Bayesian} -- We would like to be able to perform model selection in a Bayesian framework, as well as to marginalize over nuisance parameters and propagate uncertainty to future steps. We would also like to use uncertainty estimates to intelligently drive sampling to regions.
-    \item (+) \bemph{Computationally efficient} -- We would like to be able to apply any proposed method to long trajectories with up to millions of simulation frames. The computational cost of a method should not grow much faster than $O(Nd^2)$ with $N$ the number of frames and $d$ the number of atoms.
-    \item (+) \bemph{Nonlinear} -- Effectively describing slow molecular motion using a small number of collective variables may be impossible if these variables are constrained to be linear functions of the input coordinates.
-    \item (+) \bemph{Rotation-invariant} -- The distance between two protein conformations should be invariant to rigid-body rotations and translations.
-    \item (-) \bemph{Require manual feature engineering} -- We would like a method to require minimal user-specified 
-\end{itemize}
+\section{Full example of building and scoring an MSM on an example dataset}
+
 
 \section{Research plan}
 We would like to evaluate a set of metric learning approaches for the purpose of building Markov State Models (MSMs) of biomolecular kinetics.
@@ -126,8 +120,19 @@ We can measure performance of an MSM by examining the convergence of the implied
 \subsubsection{Generalized Matrix Rayleigh Quotient (GMRQ)}
 McGibbon and Pande, 2015 (\url{http://arxiv.org/pdf/1407.8083v3.pdf}) introduced an objective function for low-rank estimators of slow dynamics.
 
-\section{Modeling strategies}
+\section{Design considerations}
+\begin{itemize}
+ 	 \item \bemph{Rotation-invariant} -- The distance between two protein conformations should be invariant to rigid-body rotations and translations.
+	\item \bemph{Bayesian} -- We would like to be able to perform model selection in a Bayesian framework, as well as to marginalize over nuisance parameters and propagate uncertainty to other pipeline steps. Additionally, if we have access to well-calibrated uncertainty estimates, we could in principle use these estimates to perform active sampling.
+ 	\item \bemph{Computationally efficient} -- We would like to be able to apply any proposed method to long trajectories with up to millions of simulation frames. The computational cost of a method should not grow much faster than $O(Nd^2)$ with $N$ the number of frames and $d$ the number of atoms.
+	 \item \bemph{Nonlinear} -- Effectively describing slow molecular motion using a small number of collective variables may be impossible if these variables are constrained to be linear functions of the input coordinates.
+	 \item \bemph{Physically interpretable} -- We would like to be able to examine the learned metric, both to gain insight into the slow relaxation processes and to . For example, if the output coordinates are sparse functions of the input features.
+	 \item \bemph{Minimal feature engineering} -- We would like a method to require minimal pre-specification of kinetically important ``features'' or collective variables.
+\end{itemize}
 
+
+\section{Modeling strategies}
+The input objects are configurations, N-by-3 matrices containing the raw 3D coordinates of each of the N atoms in the molecule.
 
 \subsection{Input coordinates}
 \begin{itemize}
@@ -139,15 +144,14 @@ McGibbon and Pande, 2015 (\url{http://arxiv.org/pdf/1407.8083v3.pdf}) introduced
 \end{itemize}
 
 
-\subsection{Mahalanobis distances}
-Distance functions defined by affine transformations are \bemph{Mahalanobis distances} $$d_X(a,b) \equiv (a-b)^T X (a-b) $$ where $X$ is a symmetric p.s.d. matrix.
+\subsection{Linear transformations}
+We can consider distance functions defined by affine transformations, $$d_M(a,b) \equiv \| M^T a - M^T b \|_2 $$
 
-A subset of these are \bemph{squared weighted Euclidean} distances, where $X$ is diagonal.
+A subset of these are \bemph{squared weighted Euclidean} distances, where $M$ is diagonal.
 
 \subsubsection{Principal Component Analysis (PCA)}
-Find a matrix $M$ with orthonormal columns (defining a projection function $f:X\mapsto M^T X$) that minimizes squared reconstruction error ($M = \argmin_{M \in \mathcal{O}^{d \times r}} \|X-MM^TX\|^2_F$).
-
-This can be solved in closed form by solving an eigenvalue problem: columns of $M$ are the leading eigenvectors of the data covariance matrix.
+Find a matrix $M\in \mathbb{R}^{d \times r}$ with orthonormal columns (defining an orthogonal projection function $f:X\mapsto M^T X$) that minimizes squared reconstruction error ($M = \argmin_{M \in \mathcal{O}^{d \times r}} \|X-MM^TX\|^2_F$).
+\footnote{Equivalently, we can minimize $-\text{tr}(M^T X X^T M) \propto -\text{tr}(M^T \Sigma M)$, where $\Sigma$ is the empirical covariance matrix. This can be solved in closed form by solving an eigenvalue problem: greedily select the dominant $r$ eigenvectors in the eigenvalue decomposition $\Sigma = Q \Lambda Q^T$}
 
 \subsubsection{Time-structured Independent Component Analysis (tICA)}
 tICA is a method for finding low-dimensional linear projections that best capture the slow processes at a given lag-time $\tau$.
@@ -157,9 +161,9 @@ Given a mean-free time-series $\bfv{y}(t)$, find a matrix $M$ that solves the fo
 
 $$\bfm{C}(\tau) M = \bfm{C}(0) M \bfm{\Lambda}$$
 
-We can interpret $M$ as containing linear approximations to the eigenfunctions of the full MD propagator, motivating its use in constructing MSMs, and we can interpret the associated eigenvalues as indicators of the relaxation timescales in those directions.
+$M$ has been interpreted as containing linear approximations to the eigenfunctions of the full MD propagator, motivating its use in constructing MSMs. Each eigenvector corresponds to a direction in which the system relaxes slowly, and the associated eigenvalues are indicators of the timescales of relaxation in those directions.
 
-We can also interpret tICA as solving an optimization problem over matrices. \footnote{Note that the columns of $M$ are not required to be orthogonal.}
+We can also interpret tICA as solving an optimization problem over matrices. \footnote{Note that the columns of $M$ are not required to be orthogonal in the tICA problem.}
 
 This generalized eigenvalue problem can be interpreted as an optimization problem. Given two $n\times n$ matrices $(A,B)$, a generalized eigenvalue problem is to find pairs $(\lambda,v)$ that satisfy $A v = \lambda B v$. Finding the dominant eigenspace corresponds to minimizing the generalized Rayleigh quotient:
 \begin{equation} \label{eq:gmrq}
@@ -174,7 +178,7 @@ $Y_*$ is a global minimizer of the generalized Rayleigh quotient \ref{eq:gmrq}. 
 
 % Kinetic maps paper: 
 
-\jhfcomment{Problems: when the lag-time $\tau$ is longer than the slowest relaxation time in the system, the some of the eigenvalues may be negative, corresponding to ``flipping'' processes.}
+\jhfcomment{Problems: when the lag-time $\tau$ is longer than the slowest relaxation time in the system, then some of the eigenvalues may be negative, corresponding to ``flipping'' processes.}
 
 So we can interpret tICA as minimizing the following objective function involving a trace of quotients:
 $$ f_{\text{tICA}}(M) = \text{tr}\left(\frac{M^T \bfm{C}(\tau) M}{M^T \bfm{C}(0) M}\right) $$
@@ -183,9 +187,12 @@ A more appropriate objective might be the following, involving a quotient of tra
 
 $$ f_{\text{MAF}}(M) = \frac{\text{tr}(M^T \bfm{C}(\tau) M)}{\text{tr}(M^T \bfm{C}(0) M)}$$
 
-For related problems, including maximum autocorrelation factors (MAF) and linear discriminant analysis (LDA), Cunningham and Ghahramani (2015) compared objective functions based on trace-of-quotients vs. quotient-of-traces. The quotient-of-traces objective cannot be formulated as an eigenvalue problem.
+For related problems, including maximum autocorrelation factors (MAF) and linear discriminant analysis (LDA), Cunningham and Ghahramani (2015) compared objective functions based on trace-of-quotients vs. quotient-of-traces. Often these objectives are mistakenly treated as equivalent, although the quotient-of-traces objective cannot be formulated as an eigenvalue problem.
 
-\jhfcomment{See also: Fukunaga, 1990, }
+\subsubsection{Kernel tICA (ktICA)}
+Similar to the kernelized version of PCA, we can define a dual version of tICA, and solve it with arbitrary choice of kernel function.
+
+\jhfcomment{See also the references in Cunningham and Ghahramani: Fukunaga, 1990, }
 
 \subsection{Weighted RMSD / RMSD-similars}
 \subsubsection{RMSD}
@@ -199,26 +206,41 @@ $$ \text{wRMSD}(X,Y,\bfv{w}) = \min_R \sum_i w_i \| X_i R - Y_i \|^2 $$
 
 where $ \bfv{w} \in \mathbb{R}^N$.
 
-This flexibility allows us to reduce the influence of 
+This allows us to ``de-emphasize'' parts of the protein that may fluctuate rapidly, and to ``emphasize'' parts of the protein that indicate the long-timescale relaxation processes.
+
+How should we choose $\bfv{w}$?
 
 \subsubsection{Binet-Cauchy Kernel}
-A function that computes something similar to RMSD is the so-called ``Binet-Cauchy kernel:''
+A function that computes a quantity similar to RMSD is the so-called ``Binet-Cauchy kernel:''
 $$ \text{BC}(X,Y) = \frac{\text{det}(X^T Y)}{\sqrt{\text{det}(X^T X) \text{det}(Y^T Y)}} $$.
 
-Interpretation: this kernel is computing the cosine between the grassmann vectors of $X$ and $Y$.
+Like RMSD, this function also invariant to rotation.
 
+Interpretation: this kernel is computing the cosine between the grassmann vectors of $X$ and $Y$.
+b
 We can then parametrize these distances by multiplying in an $N\times N$ weight matrix $W$:
 $$ \text{wBC}(X,Y; W) = \frac{\text{det}(X^T W Y)}{\sqrt{\text{det}(X^T W X) \text{det}(Y^T W Y)}} $$.
 where $W$ is symmetric, p.s.d.
 % This should preserve the p.s.d.-ness of the kernel? Haven't checked explicitly yet, but for some numerical examples it produces p.s.d. Gram matrices, so that's nice...
 
 \subsection{Large-margin kinetic metric learning}
-Assume we have a family of distance functions $d_\params(\cdot, \cdot)$ parametrized by a vector $\params$. We want to find the weight vector that maximizes the distance between kinetically distant points and minimizes the distance between kinetically close points.
+Assume we have a family of distance functions $d_\params(\cdot, \cdot)$ parametrized by a vector $\params$. We want to find the weight vector that maximizes the distance between kinetically distant points and minimizes the distance between kinetically close points. In other words, we want the metric to ``pull'' similar points together and ``push'' dissimilar points far apart.
 
-Given an observed sequence of points $\{\y_t\}$ and two lag-times $\tau_1$ and $\tau_2$ ($\tau_2 \gg \tau_1$), we can phrase this as an optimization problem in terms of a triplet loss function:
-$$\params^* = \text{argmin}_\params \sum_{t} \ell(\params | (\y_t,\y_{t+\tau_1},\y_{t+\tau_2}))$$
+Given an observed sequence of points $\mathcal{D} = \{\y_t\}$, we can extract triplet labels of the form $(a,b,c)$ where $a$ is more similar to $b$ than to $c$. One way to do this is to select two lag-times $\tau_1$ and $\tau_2$ ($\tau_2 \gg \tau_1$), and provie triplet labels $(\y_t,\y_{t+\tau_1},\y_{t+\tau_2})$.
 
-where, for example, we might take the loss function to be linear: $$ \ell(\params | (\y_t,\y_{t+\tau_1},\y_{t+\tau_2})) \equiv d_\params(\y_t,\y_{t+\tau_1})-d_\params(\y_t,\y_{t+\tau_2}) $$
+We can then phrase this as an optimization problem in terms of a sum over triplets of a loss function:
+\begin{equation} \label{eq:triplet_loss}
+\params^* = \text{argmin}_\params \sum_{t} \ell(\params | (a,b,c))
+\end{equation}
+
+where, for example, we might take the loss function to be linear\footnote{This would be a bad choice in practice since we could always improve the value of the loss function by globally scaling the outputs.}:
+$$
+\ell(\params | (a,b,c)) \equiv d_\params(a,b)-d_\params(a,c)
+$$
+
+or, as in Weinberger et al., 2005:
+$$\ell(\params | (a,b,c)) \equiv d_\params(a,b)^2 + \lambda (1 + d_\params(a,b)^2 - d_\params(a,c)^2)$$
+
 
 \subsection{Triplet network}
 We can train a multilayer feed-forward neural network to embed input vectors into a low-dimensional space that minimizes some loss function over triplets of time-lagged observations.
@@ -226,23 +248,51 @@ We can train a multilayer feed-forward neural network to embed input vectors int
 In other words, we consider parametrized mappings of the form
 $$f_\params
 :\y\mapsto
-\sigma \left( W_n \dots \sigma \left( W_2 \sigma \left( W_1 \sigma \left( W_0 \y  + \bfv{b}_0 \right)  + \bfv{b}_1 \right)  + \bfv{b}_2 \right) \dots + \bfv{b}_n \right)$$
-where the input is repeatedly multiplied by a weight matrix $W_i$ and passed through a (nonlinear) activation function $\sigma$, i.e. $\params$ contains ${W_{0, \dots, n},\bfv{b}_{0,\dots, n}}$, $W_i \in \mathbb{R}^{s_{i}\times s_{i-1}}$ are real weight matrices, $\bfv{b}_i \in \mathbb{R}^{s_i}$ are bias vectors, and $\sigma_i$ are activation functions (e.g. sigmoid or $\text{tanh}$), applied elementwise. If all $\sigma_i$ are linear, then the resulting mappings are linear. The shape of each weight matrix $W_i$ determines the ``width'' of the subsequent layer.
+\sigma_n \left( W_n \dots \sigma_2 \left( W_2 \sigma_1 \left( W_1 \sigma_0 \left( W_0 \y  + \bfv{b}_0 \right)  + \bfv{b}_1 \right)  + \bfv{b}_2 \right) \dots + \bfv{b}_n \right)$$
+where the input is repeatedly multiplied by a weight matrix $W_i$ and passed through a (nonlinear) activation function $\sigma$, i.e. $\params$ contains ${W_{0, \dots, n},\bfv{b}_{0,\dots, n}}$, where $W_i \in \mathbb{R}^{s_{i}\times s_{i-1}}$ are real weight matrices, $\bfv{b}_i \in \mathbb{R}^{s_i}$ are bias vectors, and $\sigma_i$ are activation functions (e.g. sigmoid or $\text{tanh}$), applied elementwise. If all $\sigma_i$ are linear, then the resulting mappings are linear. The shape of each weight matrix $W_i$ determines the ``width'' of the subsequent layer.
 
+We can then try to find a parametrization $\params$ that minimizes the triplet loss function \ref{eq:triplet_loss}, e.g. by stochastic gradient descent.
 
-\subsection{Generative embeddings?}
+\jhfcomment{Include results}
+
+Challenges:
+\begin{itemize}
+	\item Practically, optimizing $\params$ may be difficult when the number of layers $n$ is large, due to ``vanishing gradients'' and other problems induced by correlations across layers.
+	\item A MLP has an exponential number of symmetrical optima due to parameter unidentifiability. This is not a problem if we want to just find one good setting of the parameters, but may be important to keep in mind if we are building a 
+\end{itemize}
+
+\subsection{Generative embeddings}
 We expect that the sequence of observed high-dimensional snapshots are projections of a Markov process evolving in a hidden (and potentially lower-dimensional) latent space.
 
-A natural modeling approach is then to marginalize over the hidden coordinates to estimate the latent-to-observed projection function. If this projection function is invertible, then this now lets us infer the latent coordinates given the observations.
+A natural modeling approach is then to marginalize over the hidden coordinates to estimate the latent-to-observed projection function. If this projection function is invertible, then this now lets us infer the latent coordinates given observations.
+
+\subsection{Probabilistic PCA (PPCA)}
+We can reformulate PCA in probabilistic terms by constructing a latent variable model, where the prior over hidden coordinates is Gaussian, and the high-dimensional observations $\{ \y_t \}$ are linear projections of hidden coordinates $\{ \x_t \}$ corrupted by isotropic Gaussian noise (i.e. $\y_t \sim M \x_t + \mathcal{N}(\bfv{0},\bfm{I} \sigma^2) $). PCA can then be interpreted as the maximum likelihood estimate of this linear projection function $M$ .\footnote{Or, more precisely, of its inverse $M^T$.} \footnote{Note that this, like PCA, ignores the time-ordering of the observations.}
+
+\subsection{Gaussian Process Latent Variable Model (GP-LVM)}
+Nonlinear generalization of PPCA, where the latent-to-observed projection functions are modeled as draws from a GP. Reduces to PPCA when the GP kernel is linear.
 
 \section{Dynamics models}
+
 \subsection{Markov State Models (MSMs)}
-We assume the data sequence is generated by a Markov jump process over discrete clusters.
+We assume the data sequence $\{ \y_t \}$ is generated by an ergodic, reversible Markov jump process over discrete clusters.
 
 \subsection{Projected and Hidden Markov Models (PMMs and HMMs)}
+In an HMM, we assume there is an ergodic, reversible Markov jump process $\{ \x_t \}$ over a discrete hidden state space $\x_t \in \mathbb{Z}^M$, representable by an $M\times M$ transition matrix. The observed sequence $\{ \y_t \}$ over a discrete observable space $\y_t \in \mathbb{Z}^N$ is given by a discrete conditional distribution, $ p(\y_t | \x_t)$, representable by an $M \times N$ observation matrix.
 
+In the case of PMMs, we assume there is an ergodic, reversible Markov process $\{ x_t \}$ over a continuous hidden state space $\x_t \in \Omega$. The observed sequence $\{y_t\}$ are projections of $\x_t$.
 
+PMMs can be approximated by HMMs, and there are efficient algorithms for learning the parameters of HMMs. Additionally, any observable that can be estimated from an MSM can be estimated from a PMM / HMM.
+
+\jhfcomment{Reference: http://publications.mi.fu-berlin.de/1320/}
 
 \subsection{Reduced-Rank Hidden Markov Models (RR-HMMs)}
+If we assume that the hidden transition matrix is rank-deficient (i.e. it has rank $m \ll M$), then we can model processes involving a very large number of hidden states $M$ while only having to estimate $m \times m$ parameters.
+
+\subsection{Linear dynamical systems (LDS)}
+The time propagator is a linear function of the current state.
+
+\subsection{Gaussian Process Dynamical Model}
+Generalization of linear dynamical systems, where the propagator is modeled by a GP.
 
 \end{document}
